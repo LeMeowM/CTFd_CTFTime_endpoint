@@ -1,3 +1,6 @@
+import json
+import os
+
 from flask_restx import Namespace, Resource
 from flask import session, jsonify
 
@@ -23,9 +26,23 @@ ctftime_namespace = Namespace(
     "ctftime", description="Endpoint to retrieve scores for ctftime"
 )
 
+_ALIASES_PATH = os.path.join(os.path.dirname(__file__), "team_aliases.json")
+
+
+def _load_aliases():
+    try:
+        with open(_ALIASES_PATH) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
 
 def unicode_safe(string):
     return string.encode("unicode_escape").decode()
+
+
+def resolve_team_name(ctfd_name, aliases):
+    return aliases.get(ctfd_name, ctfd_name)
 
 
 @ctftime_namespace.route("")
@@ -56,6 +73,7 @@ class ScoreboardList(Resource):
         # Get Standings
         standings = get_standings()
         team_ids = [s.account_id for s in standings]
+        aliases = _load_aliases()
 
         solves = Solves.query.filter(Solves.account_id.in_(team_ids))
         if freeze:
@@ -64,7 +82,7 @@ class ScoreboardList(Resource):
         for i, team in enumerate(team_ids):
             team_standing = {
                 "pos": i + 1,
-                "team": unicode_safe(standings[i].name),
+                "team": unicode_safe(resolve_team_name(standings[i].name, aliases)),
                 "score": float(standings[i].score),
                 "taskStats": {},
             }
