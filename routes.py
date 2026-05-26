@@ -1,12 +1,11 @@
 from flask_restx import Namespace, Resource
-from flask import session, jsonify, abort
+from flask import session, jsonify
 
 from CTFd.models import Solves, Challenges
 from CTFd.cache import cache, make_cache_key
 from CTFd.utils.scores import get_standings
 from CTFd.utils import get_config
-from CTFd.utils.modes import get_model, TEAMS_MODE
-from CTFd.utils.dates import unix_time
+from CTFd.utils.dates import unix_time, unix_time_to_utc
 from CTFd.utils.decorators import during_ctf_time_only
 from CTFd.utils.decorators.visibility import (
     check_challenge_visibility,
@@ -55,11 +54,8 @@ class ScoreboardList(Resource):
             challenges_ids[x.id] = unicode_safe(x.name) + " " + str(x.value)
 
         # Get Standings
-        if mode == TEAMS_MODE:
-            standings = get_standings()
-            team_ids = [team.account_id for team in standings]
-        else:
-            abort(501, "CTFTime only accepts team scores.")
+        standings = get_standings()
+        team_ids = [s.account_id for s in standings]
 
         solves = Solves.query.filter(Solves.account_id.in_(team_ids))
         if freeze:
